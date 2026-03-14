@@ -74,8 +74,8 @@ public class LevelManager : MonoBehaviour
         // Cập nhật GridSystem theo kích thước level
         gridSystem.Resize(_currentLevelData.gridWidth, _currentLevelData.gridHeight);
 
-        // Tính số moves
-        int moves = baseMoves + _currentLevelData.blocks.Count * movesPerBlock;
+        // Tính số moves bằng simulation
+        int moves = MovesCalculator.CalculatePlayerMoves(_currentLevelData, levelIndex);
         GameManager.Instance?.InitMoves(moves);
 
         SpawnGears(_currentLevelData);

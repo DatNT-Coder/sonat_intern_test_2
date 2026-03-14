@@ -29,6 +29,14 @@ public class GameManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
         LoadSave();
+        // Đợi 1 frame để UIManager khởi tạo xong
+        StartCoroutine(InitHUDDelayed());
+    }
+
+    private System.Collections.IEnumerator InitHUDDelayed()
+    {
+        yield return null;
+        UIManager.Instance?.UpdateCoins(Coins);
     }
 
     void Update()
@@ -154,7 +162,8 @@ public class GameManager : MonoBehaviour
     private void LoadSave()
     {
         HighestLevel = PlayerPrefs.GetInt("HighestLevel", 0);
-        CurrentLevel = PlayerPrefs.GetInt("CurrentLevel", 0); // Tiếp tục từ level đã chơi
+        CurrentLevel = PlayerPrefs.GetInt("CurrentLevel", 0);
         Coins = PlayerPrefs.GetInt("Coins", 0);
+        Debug.Log($"[GameManager] Loaded: Level={CurrentLevel}, Coins={Coins}");
     }
 }

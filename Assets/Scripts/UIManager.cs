@@ -66,12 +66,22 @@ public class UIManager : MonoBehaviour
         loseMoreMovesBtn?.onClick.AddListener(OnLoseMoreMoves);
 
         HideAll();
+        // Dùng Invoke để đợi GameManager load save xong
+        Invoke(nameof(RefreshHUD), 0.1f);
     }
 
     void OnDestroy()
     {
         if (GameManager.Instance != null)
             GameManager.Instance.OnGameStateChanged -= HandleStateChanged;
+    }
+
+    private void RefreshHUD()
+    {
+        if (GameManager.Instance == null) return;
+        UpdateCoins(GameManager.Instance.Coins);
+        UpdateMoves(GameManager.Instance.MovesLeft);
+        SetLevelLabel(GameManager.Instance.CurrentLevel + 1);
     }
 
     // ─── State ───────────────────────────────────────────────────────────────
@@ -94,6 +104,7 @@ public class UIManager : MonoBehaviour
                 gameplayPanel?.SetActive(true);
                 UpdateCoins(GameManager.Instance.Coins);
                 UpdateMoves(GameManager.Instance.MovesLeft);
+                SetLevelLabel(GameManager.Instance.CurrentLevel + 1);
                 break;
             case GameState.Win:
                 StartCoroutine(ShowWinDelayed());
