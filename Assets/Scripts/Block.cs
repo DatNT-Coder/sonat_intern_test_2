@@ -63,9 +63,7 @@ public class Block : MonoBehaviour
     public void TrySlide()
     {
         if (_isSliding) return;
-
-        // Mỗi lần tap tốn 1 move
-        GameManager.Instance?.UseMove();
+        GameManager.Instance?.UseMove(); // Mỗi lần tap = 1 move
 
         if (_hp > 1)
         {

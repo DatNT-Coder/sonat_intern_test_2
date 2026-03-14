@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using DG.Tweening;
+using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -24,6 +25,7 @@ public class LevelManager : MonoBehaviour
     private List<Block> _activeBlocks = new List<Block>();
     private List<GearBlock> _activeGears = new List<GearBlock>();
     private LevelData _currentLevelData;
+    private int _currentLevelIndex;
     private int _totalBlocks;
 
     public int RemainingBlocks => _activeBlocks.Count;
@@ -66,6 +68,7 @@ public class LevelManager : MonoBehaviour
             _currentLevelData = levelGenerator.Generate(levelIndex);
         else { Debug.LogWarning("[LevelManager] No data source!"); return; }
 
+        _currentLevelIndex = levelIndex;
         Debug.Log($"[LevelManager] Loading: {_currentLevelData.levelName}, {_currentLevelData.blocks.Count} blocks");
 
         // Cập nhật GridSystem theo kích thước level
@@ -130,6 +133,24 @@ public class LevelManager : MonoBehaviour
         yield return new WaitForSeconds(0.5f);
         if (GameManager.Instance.CurrentState == GameState.Playing)
             GameManager.Instance.WinLevel();
+    }
+
+    public void RemoveRandomBlock()
+    {
+        if (_activeBlocks.Count == 0) return;
+        int idx = Random.Range(0, _activeBlocks.Count);
+        Block b = _activeBlocks[idx];
+        if (b != null)
+        {
+            _activeBlocks.RemoveAt(idx);
+            b.OnBlockRemoved -= HandleBlockRemoved;
+            gridSystem?.UnregisterBlock(b);
+            b.transform.DOScale(Vector3.zero, 0.3f).SetEase(Ease.InBack)
+                .OnComplete(() => Destroy(b.gameObject));
+            // Check win
+            if (_activeBlocks.Count <= 0)
+                StartCoroutine(DelayedWin());
+        }
     }
 
     public void ClearLevel()

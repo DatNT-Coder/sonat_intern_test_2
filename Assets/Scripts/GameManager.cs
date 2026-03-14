@@ -17,7 +17,8 @@ public class GameManager : MonoBehaviour
     public event Action<GameState> OnGameStateChanged;
 
     public GameState CurrentState { get; private set; }
-    public int CurrentLevel { get; private set; }
+    public int CurrentLevel { get; private set; }   // level đang chơi
+    public int HighestLevel { get; private set; }   // level cao nhất đã unlock
     public int Coins { get; private set; }
     public int MovesLeft { get; private set; }
     public int TotalMoves { get; private set; }
@@ -28,6 +29,13 @@ public class GameManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
         LoadSave();
+    }
+
+    void Update()
+    {
+        // Nhấn R để retry màn hiện tại
+        if (Input.GetKeyDown(KeyCode.R))
+            RetryLevel();
     }
 
     void Start()
@@ -54,7 +62,7 @@ public class GameManager : MonoBehaviour
         UIManager.Instance?.UpdateMoves(MovesLeft);
     }
 
-    /// <summary>Được gọi mỗi khi player tap block (kể cả bị chặn)</summary>
+    /// <summary>Gọi khi block trượt ra khỏi màn thành công (không phải khi bị chặn)</summary>
     public void UseMove()
     {
         if (CurrentState != GameState.Playing) return;
@@ -62,10 +70,7 @@ public class GameManager : MonoBehaviour
         UIManager.Instance?.UpdateMoves(MovesLeft);
 
         if (MovesLeft <= 0)
-        {
-            // Kiểm tra còn block không — nếu LevelManager chưa win thì lose
             StartCoroutine(CheckLoseDelayed());
-        }
     }
 
     private System.Collections.IEnumerator CheckLoseDelayed()
@@ -87,7 +92,9 @@ public class GameManager : MonoBehaviour
     {
         int bonus = coinsPerWin + MovesLeft * bonusCoinsPerRemainingMove;
         AddCoins(bonus);
+        HighestLevel = Mathf.Max(HighestLevel, CurrentLevel + 1);
         CurrentLevel++;
+        PlayerPrefs.SetInt("HighestLevel", HighestLevel);
         PlayerPrefs.SetInt("CurrentLevel", CurrentLevel);
         PlayerPrefs.Save();
         SetState(GameState.Win);
@@ -95,7 +102,9 @@ public class GameManager : MonoBehaviour
 
     public void RetryLevel()
     {
-        SetState(GameState.Playing);
+        // Reload đúng level đang chơi — KHÔNG tăng CurrentLevel
+        LevelManager.Instance?.LoadLevel(CurrentLevel);
+        InitMoves(GameManager.Instance.TotalMoves);
     }
 
     public void NextLevel()
@@ -130,9 +139,22 @@ public class GameManager : MonoBehaviour
 
     // ─── Save ─────────────────────────────────────────────────────────────────
 
+    [ContextMenu("Reset Save Data")]
+    public void ResetSave()
+    {
+        PlayerPrefs.DeleteAll();
+        CurrentLevel = 0;
+        HighestLevel = 0;
+        Coins = 0;
+        UIManager.Instance?.UpdateCoins(0);
+        UIManager.Instance?.UpdateMoves(0);
+        Debug.Log("[GameManager] Save data reset!");
+    }
+
     private void LoadSave()
     {
-        CurrentLevel = PlayerPrefs.GetInt("CurrentLevel", 0);
+        HighestLevel = PlayerPrefs.GetInt("HighestLevel", 0);
+        CurrentLevel = PlayerPrefs.GetInt("CurrentLevel", 0); // Tiếp tục từ level đã chơi
         Coins = PlayerPrefs.GetInt("Coins", 0);
     }
 }
