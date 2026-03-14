@@ -39,15 +39,19 @@ public class LevelGenerator : ScriptableObject
         public float multiCellChance, heavyChance;
     }
 
+    [Header("Max Grid Size (phai khop voi GridSystem)")]
+    [SerializeField] private int maxWidth = 5;
+    [SerializeField] private int maxHeight = 7;
+
     private GenConfig BuildConfig(int difficulty)
     {
         float t = Mathf.Clamp01(difficulty / 20f);
         return new GenConfig
         {
-            width = baseWidth + Mathf.FloorToInt(t * 3),
-            height = baseHeight + Mathf.FloorToInt(t * 4),
+            width = Mathf.Min(baseWidth + Mathf.FloorToInt(t * 3), maxWidth),
+            height = Mathf.Min(baseHeight + Mathf.FloorToInt(t * 4), maxHeight),
             blockCount = Mathf.RoundToInt(Mathf.Lerp(4, 18, t)),
-            multiCellChance = Mathf.Lerp(0f, 0.3f, t),
+            multiCellChance = 0f, // Tắt multi-cell để tránh bug chặn chéo
             heavyChance = Mathf.Lerp(0f, 0.2f, t),
         };
     }

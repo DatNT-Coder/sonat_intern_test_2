@@ -1,90 +1,138 @@
 ﻿using UnityEngine;
 using System;
 
-/// <summary>
-/// Central game manager. Singleton pattern.
-/// Controls overall game state machine.
-/// </summary>
+public enum GameState { MainMenu, Playing, Win, Lose, Paused }
+
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
+    [Header("Debug")]
+    [SerializeField] private bool skipMainMenu = true;
+
+    [Header("Economy")]
+    [SerializeField] private int coinsPerWin = 10;
+    [SerializeField] private int bonusCoinsPerRemainingMove = 1;
+
     public event Action<GameState> OnGameStateChanged;
 
-    [Header("Settings")]
-    [SerializeField] private int totalLevels = 10;
-
-    private GameState _currentState;
-    private int _currentLevel;
-
-    public GameState CurrentState => _currentState;
-    public int CurrentLevel => _currentLevel;
+    public GameState CurrentState { get; private set; }
+    public int CurrentLevel { get; private set; }
+    public int Coins { get; private set; }
+    public int MovesLeft { get; private set; }
+    public int TotalMoves { get; private set; }
 
     void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        LoadSave();
     }
-
-    [Header("Debug")]
-    [SerializeField] private bool skipMainMenu = true; // tắt sau khi có UI
 
     void Start()
     {
-        _currentLevel = PlayerPrefs.GetInt("CurrentLevel", 0);
-        ChangeState(skipMainMenu ? GameState.Playing : GameState.MainMenu);
+        if (skipMainMenu) SetState(GameState.Playing);
+        else SetState(GameState.MainMenu);
     }
 
-    public void ChangeState(GameState newState)
+    // ─── State ───────────────────────────────────────────────────────────────
+
+    public void SetState(GameState newState)
     {
-        _currentState = newState;
-        OnGameStateChanged?.Invoke(newState);
+        CurrentState = newState;
         Debug.Log($"[GameManager] State -> {newState}");
+        OnGameStateChanged?.Invoke(newState);
     }
 
-    public void StartGame()
+    // ─── Moves ───────────────────────────────────────────────────────────────
+
+    public void InitMoves(int moves)
     {
-        ChangeState(GameState.Playing);
+        TotalMoves = moves;
+        MovesLeft = moves;
+        UIManager.Instance?.UpdateMoves(MovesLeft);
     }
+
+    /// <summary>Được gọi mỗi khi player tap block (kể cả bị chặn)</summary>
+    public void UseMove()
+    {
+        if (CurrentState != GameState.Playing) return;
+        MovesLeft--;
+        UIManager.Instance?.UpdateMoves(MovesLeft);
+
+        if (MovesLeft <= 0)
+        {
+            // Kiểm tra còn block không — nếu LevelManager chưa win thì lose
+            StartCoroutine(CheckLoseDelayed());
+        }
+    }
+
+    private System.Collections.IEnumerator CheckLoseDelayed()
+    {
+        yield return new WaitForSeconds(0.4f);
+        if (CurrentState == GameState.Playing)
+            SetState(GameState.Lose);
+    }
+
+    public void AddMoves(int amount)
+    {
+        MovesLeft += amount;
+        UIManager.Instance?.UpdateMoves(MovesLeft);
+    }
+
+    // ─── Win / Lose ──────────────────────────────────────────────────────────
 
     public void WinLevel()
     {
-        _currentLevel = Mathf.Min(_currentLevel + 1, totalLevels - 1);
-        PlayerPrefs.SetInt("CurrentLevel", _currentLevel);
-        ChangeState(GameState.Win);
+        int bonus = coinsPerWin + MovesLeft * bonusCoinsPerRemainingMove;
+        AddCoins(bonus);
+        CurrentLevel++;
+        PlayerPrefs.SetInt("CurrentLevel", CurrentLevel);
+        PlayerPrefs.Save();
+        SetState(GameState.Win);
     }
 
-    public void LoseLevel()
+    public void RetryLevel()
     {
-        ChangeState(GameState.Lose);
-    }
-
-    public void RestartLevel()
-    {
-        ChangeState(GameState.Playing);
+        SetState(GameState.Playing);
     }
 
     public void NextLevel()
     {
-        ChangeState(GameState.Playing);
+        SetState(GameState.Playing);
     }
 
     public void GoToMainMenu()
     {
-        ChangeState(GameState.MainMenu);
+        SetState(GameState.MainMenu);
     }
-}
 
-public enum GameState
-{
-    MainMenu,
-    Playing,
-    Win,
-    Lose,
-    Paused
+    // ─── Coins ───────────────────────────────────────────────────────────────
+
+    public void AddCoins(int amount)
+    {
+        Coins += amount;
+        PlayerPrefs.SetInt("Coins", Coins);
+        PlayerPrefs.Save();
+        UIManager.Instance?.UpdateCoins(Coins);
+    }
+
+    public bool SpendCoins(int amount)
+    {
+        if (Coins < amount) return false;
+        Coins -= amount;
+        PlayerPrefs.SetInt("Coins", Coins);
+        PlayerPrefs.Save();
+        UIManager.Instance?.UpdateCoins(Coins);
+        return true;
+    }
+
+    // ─── Save ─────────────────────────────────────────────────────────────────
+
+    private void LoadSave()
+    {
+        CurrentLevel = PlayerPrefs.GetInt("CurrentLevel", 0);
+        Coins = PlayerPrefs.GetInt("Coins", 0);
+    }
 }

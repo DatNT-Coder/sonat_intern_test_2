@@ -15,6 +15,24 @@ public class GridSystem : MonoBehaviour
     public int Height => height;
     public float CellSize => cellSize;
 
+    public void SetCellSize(float newSize) { cellSize = newSize; }
+
+    public void Resize(int newWidth, int newHeight)
+    {
+        width = newWidth;
+        height = newHeight;
+        _grid.Clear();
+        _gears.Clear();
+        Debug.Log($"[GridSystem] Resized to {width}x{height}");
+    }
+
+    /// <summary>Xóa sạch toàn bộ grid — dùng khi clear level</summary>
+    public void ForceClean()
+    {
+        _grid.Clear();
+        _gears.Clear();
+    }
+
     public void Init(LevelData levelData)
     {
         width = levelData.gridWidth;
@@ -65,14 +83,26 @@ public class GridSystem : MonoBehaviour
 
             while (IsInBounds(check))
             {
-                if (_grid.ContainsKey(check) && _grid[check] != block)
+                if (_grid.ContainsKey(check))
                 {
-                    if (dist < minDist)
+                    Block candidate = _grid[check];
+                    // Bỏ qua nếu candidate đã bị destroy
+                    if (candidate == null || candidate.gameObject == null)
                     {
-                        minDist = dist;
-                        blocker = _grid[check];
+                        _grid.Remove(check);
+                        check += dir;
+                        dist++;
+                        continue;
                     }
-                    break;
+                    if (candidate != block)
+                    {
+                        if (dist < minDist)
+                        {
+                            minDist = dist;
+                            blocker = candidate;
+                        }
+                        break;
+                    }
                 }
                 check += dir;
                 dist++;

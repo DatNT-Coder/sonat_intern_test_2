@@ -1,15 +1,19 @@
-using UnityEngine;
-using DG.Tweening;
+﻿using UnityEngine;
 
 /// <summary>
-/// Adjusts the orthographic camera to frame the grid perfectly,
-/// with smooth transitions between levels.
+/// Điều chỉnh camera orthographic size và position để grid luôn vừa màn hình.
+/// KHÔNG thay đổi cellSize — chỉ thay đổi camera.
 /// </summary>
-[RequireComponent(typeof(Camera))]
 public class CameraController : MonoBehaviour
 {
-    [SerializeField] private float padding = 1.5f;
-    [SerializeField] private float transitionDuration = 0.6f;
+    [Header("References")]
+    [SerializeField] private GridSystem gridSystem;
+    [SerializeField] private Transform gridOrigin;
+
+    [Header("UI Safe Area (world units)")]
+    [SerializeField] private float topUIHeight = 1.2f;  // chiều cao top bar
+    [SerializeField] private float bottomUIHeight = 1.2f;  // chiều cao bottom bar
+    [SerializeField] private float sidePadding = 0.4f;  // padding 2 bên
 
     private Camera _cam;
 
@@ -18,43 +22,44 @@ public class CameraController : MonoBehaviour
         _cam = GetComponent<Camera>();
     }
 
-    void OnEnable()
+    void Start()
     {
-        if (GameManager.Instance)
-            GameManager.Instance.OnGameStateChanged += OnStateChanged;
+        FitGridToScreen();
     }
 
-    void OnDisable()
+    public void FitGridToScreen()
     {
-        if (GameManager.Instance)
-            GameManager.Instance.OnGameStateChanged -= OnStateChanged;
-    }
+        if (gridSystem == null || gridOrigin == null || _cam == null) return;
 
-    private void OnStateChanged(GameState state)
-    {
-        if (state == GameState.Playing)
-            FitToGrid();
-    }
+        float gridW = gridSystem.Width * gridSystem.CellSize;
+        float gridH = gridSystem.Height * gridSystem.CellSize;
 
-    public void FitToGrid()
-    {
-        var grid = FindObjectOfType<GridSystem>();
-        if (grid == null) return;
+        // Tổng chiều cao cần hiển thị = grid + top bar + bottom bar
+        float totalH = gridH + topUIHeight + bottomUIHeight;
+        // Tổng chiều rộng cần hiển thị = grid + 2 bên
+        float totalW = gridW + sidePadding * 2f;
 
-        float gridW = grid.Width  * grid.CellSize;
-        float gridH = grid.Height * grid.CellSize;
-
-        // Center the camera on the grid
-        Vector3 center = grid.transform.position + new Vector3(gridW * 0.5f - grid.CellSize * 0.5f,
-                                                                gridH * 0.5f - grid.CellSize * 0.5f, -10f);
-
-        // Compute required ortho size to fit both dimensions
-        float aspect  = (float)Screen.width / Screen.height;
-        float sizeByH = gridH * 0.5f + padding;
-        float sizeByW = (gridW * 0.5f + padding) / aspect;
+        // Tính ortho size cần thiết theo cả 2 chiều, lấy cái lớn hơn
+        float sizeByH = totalH / 2f;
+        float sizeByW = totalW / (2f * _cam.aspect);
         float orthoSize = Mathf.Max(sizeByH, sizeByW);
 
-        _cam.DOOrthoSize(orthoSize, transitionDuration).SetEase(Ease.OutSine);
-        transform.DOMove(center, transitionDuration).SetEase(Ease.OutSine);
+        _cam.orthographicSize = orthoSize;
+
+        // Đặt GridOrigin: căn giữa theo X, đáy = bottom UI + 1 chút padding
+        float camCenterX = _cam.transform.position.x;
+        float camBottomY = _cam.transform.position.y - orthoSize;
+
+        float originX = camCenterX - gridW * 0.5f;
+        float originY = camBottomY + bottomUIHeight;
+
+        gridOrigin.position = new Vector3(originX, originY, 0f);
+
+        // Camera Y = giữa vùng safe (không cần dịch vì grid đã căn theo camera)
+        Vector3 camPos = _cam.transform.position;
+        camPos.y = originY + gridH * 0.5f + (topUIHeight - bottomUIHeight) * 0.5f;
+        _cam.transform.position = camPos;
+
+        Debug.Log($"[Camera] orthoSize={orthoSize:F2}, origin=({originX:F2},{originY:F2})");
     }
 }

@@ -31,7 +31,7 @@ public class Block : MonoBehaviour
         _data = data;
         _grid = grid;
         _hp = data.blockType == BlockType.Heavy ? 2 : 1;
-        transform.localScale = Vector3.one;
+        transform.localScale = new Vector3(0.942f, 0.942f, 1f);
         ApplyVisual();
     }
 
@@ -64,6 +64,9 @@ public class Block : MonoBehaviour
     {
         if (_isSliding) return;
 
+        // Mỗi lần tap tốn 1 move
+        GameManager.Instance?.UseMove();
+
         if (_hp > 1)
         {
             _hp--;
@@ -72,7 +75,6 @@ public class Block : MonoBehaviour
             return;
         }
 
-        // Kiểm tra gear trước — nếu có gear trên đường thì trượt vào gear
         GearBlock gear = _grid.GetGearInPath(this);
         if (gear != null)
         {
@@ -80,16 +82,12 @@ public class Block : MonoBehaviour
             return;
         }
 
-        // Kiểm tra block chặn
         Block blocker = _grid.GetBlocker(this);
+        Debug.Log($"[Block] {name} gridPos={_data.gridPosition} dir={_data.direction} blocker={(blocker != null ? blocker.name + "@" + blocker.GridPosition : "none")}");
         if (blocker != null)
-        {
             StartCoroutine(SlideToBlocker(blocker));
-        }
         else
-        {
             StartCoroutine(SlideOffScreen());
-        }
     }
 
     // ─── Trượt đến cạnh block chặn rồi dừng ─────────────────────────────

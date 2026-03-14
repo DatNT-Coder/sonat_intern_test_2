@@ -38,7 +38,7 @@ public class LevelSelectUI : MonoBehaviour
             btn.Setup(i, unlocked, onLevelSelected: (idx) =>
             {
                 AudioManager.Instance?.PlayButton();
-                GameManager.Instance.ChangeState(GameState.Playing);
+                GameManager.Instance.SetState(GameState.Playing);
             });
 
             // Stagger spawn animation

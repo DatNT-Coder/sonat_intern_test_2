@@ -1,40 +1,40 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using System.Collections;
 using DG.Tweening;
+using System.Collections;
 
-/// <summary>
-/// Controls all UI panels. Reacts to GameState changes.
-/// Single source of truth for UI visibility.
-/// </summary>
 public class UIManager : MonoBehaviour
 {
     public static UIManager Instance { get; private set; }
 
     [Header("Panels")]
-    [SerializeField] private CanvasGroup mainMenuPanel;
-    [SerializeField] private CanvasGroup gameplayPanel;
-    [SerializeField] private CanvasGroup winPanel;
-    [SerializeField] private CanvasGroup losePanel;
-    [SerializeField] private CanvasGroup pausePanel;
+    [SerializeField] private GameObject mainMenuPanel;
+    [SerializeField] private GameObject gameplayPanel;
+    [SerializeField] private GameObject winPanel;
+    [SerializeField] private GameObject losePanel;
+    [SerializeField] private GameObject pausePanel;
 
     [Header("Gameplay HUD")]
     [SerializeField] private TextMeshProUGUI levelLabel;
+    [SerializeField] private TextMeshProUGUI movesLabel;
+    [SerializeField] private TextMeshProUGUI coinsLabel;
     [SerializeField] private TextMeshProUGUI blockCounterLabel;
-    [SerializeField] private Slider progressBar;
 
     [Header("Win Panel")]
+    [SerializeField] private TextMeshProUGUI winCoinsEarned;
     [SerializeField] private TextMeshProUGUI winLevelLabel;
-    [SerializeField] private Transform starsContainer;
-    [SerializeField] private GameObject starPrefab;
+    [SerializeField] private Button nextLevelBtn;
 
     [Header("Lose Panel")]
-    [SerializeField] private TextMeshProUGUI loseLevelLabel;
+    [SerializeField] private TextMeshProUGUI loseMovesLabel;
+    [SerializeField] private Button retryBtn;
+    [SerializeField] private Button addMovesBtn;   // +10 moves (30 xu)
+    [SerializeField] private TextMeshProUGUI addMovesCostLabel;
 
-    [Header("Transition")]
-    [SerializeField] private CanvasGroup transitionOverlay;
-    [SerializeField] private float transitionDuration = 0.3f;
+    [Header("Shop/Item")]
+    [SerializeField] private int addMovesCost = 30;
+    [SerializeField] private int addMovesAmount = 10;
 
     void Awake()
     {
@@ -42,176 +42,167 @@ public class UIManager : MonoBehaviour
         Instance = this;
     }
 
-    void OnEnable()
+    void Start()
     {
-        GameManager.Instance.OnGameStateChanged += HandleStateChanged;
+        if (GameManager.Instance != null)
+            GameManager.Instance.OnGameStateChanged += HandleStateChanged;
+
+        // Setup buttons
+        nextLevelBtn?.onClick.AddListener(() => GameManager.Instance.NextLevel());
+        retryBtn?.onClick.AddListener(() => GameManager.Instance.RetryLevel());
+        addMovesBtn?.onClick.AddListener(OnBuyMoves);
+
+        if (addMovesCostLabel != null)
+            addMovesCostLabel.text = $"{addMovesCost} 🪙";
+
+        HideAll();
     }
 
-    void OnDisable()
+    void OnDestroy()
     {
-        if (GameManager.Instance)
+        if (GameManager.Instance != null)
             GameManager.Instance.OnGameStateChanged -= HandleStateChanged;
     }
 
-    // ─── State → UI mapping ───────────────────────────────────────────────
+    // ─── State handler ────────────────────────────────────────────────────────
 
     private void HandleStateChanged(GameState state)
     {
-        StopAllCoroutines();
-        StartCoroutine(TransitionToState(state));
-    }
-
-    private IEnumerator TransitionToState(GameState state)
-    {
-        // Fade out
-        if (transitionOverlay)
-        {
-            transitionOverlay.gameObject.SetActive(true);
-            yield return transitionOverlay.DOFade(1f, transitionDuration).WaitForCompletion();
-        }
-
-        SetAllPanelsInactive();
-
+        HideAll();
         switch (state)
         {
             case GameState.MainMenu:
                 ShowPanel(mainMenuPanel);
                 break;
-
             case GameState.Playing:
                 ShowPanel(gameplayPanel);
-                UpdateLevelLabel();
+                UpdateCoins(GameManager.Instance.Coins);
                 break;
-
             case GameState.Win:
-                ShowPanel(winPanel);
-                PlayWinAnimation();
-                AudioManager.Instance?.PlayWin();
+                StartCoroutine(ShowWinDelayed());
                 break;
-
             case GameState.Lose:
-                ShowPanel(losePanel);
-                AudioManager.Instance?.PlayLose();
+                StartCoroutine(ShowLoseDelayed());
                 break;
-
             case GameState.Paused:
                 ShowPanel(pausePanel);
                 break;
         }
+    }
 
-        // Fade in
-        if (transitionOverlay)
+    // ─── Win ─────────────────────────────────────────────────────────────────
+
+    private IEnumerator ShowWinDelayed()
+    {
+        yield return new WaitForSeconds(0.6f);
+        ShowPanel(winPanel);
+
+        if (winLevelLabel != null)
+            winLevelLabel.text = $"Level {GameManager.Instance.CurrentLevel} Complete!";
+
+        if (winCoinsEarned != null)
         {
-            yield return transitionOverlay.DOFade(0f, transitionDuration).WaitForCompletion();
-            transitionOverlay.gameObject.SetActive(false);
+            int earned = 10 + GameManager.Instance.MovesLeft;
+            winCoinsEarned.text = $"+{earned} 🪙";
+            winCoinsEarned.transform.localScale = Vector3.zero;
+            winCoinsEarned.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack);
+        }
+
+        // Animat win panel
+        if (winPanel != null)
+        {
+            winPanel.transform.localScale = Vector3.zero;
+            winPanel.transform.DOScale(1f, 0.35f).SetEase(Ease.OutBack);
         }
     }
 
-    // ─── Panel helpers ────────────────────────────────────────────────────
+    // ─── Lose ─────────────────────────────────────────────────────────────────
 
-    private void SetAllPanelsInactive()
+    private IEnumerator ShowLoseDelayed()
     {
-        SetPanel(mainMenuPanel, false);
-        SetPanel(gameplayPanel, false);
-        SetPanel(winPanel,      false);
-        SetPanel(losePanel,     false);
-        SetPanel(pausePanel,    false);
+        yield return new WaitForSeconds(0.4f);
+        ShowPanel(losePanel);
+
+        if (loseMovesLabel != null)
+            loseMovesLabel.text = "Out of moves!";
+
+        // Update nút mua moves: disable nếu không đủ xu
+        if (addMovesBtn != null)
+        {
+            bool canAfford = GameManager.Instance.Coins >= addMovesCost;
+            addMovesBtn.interactable = canAfford;
+            var colors = addMovesBtn.colors;
+            colors.normalColor = canAfford ? Color.white : Color.gray;
+            addMovesBtn.colors = colors;
+        }
+
+        if (losePanel != null)
+        {
+            losePanel.transform.localScale = Vector3.zero;
+            losePanel.transform.DOScale(1f, 0.35f).SetEase(Ease.OutBack);
+        }
     }
 
-    private void ShowPanel(CanvasGroup panel)
+    // ─── Mua thêm moves ───────────────────────────────────────────────────────
+
+    private void OnBuyMoves()
     {
-        if (panel == null) return;
-        SetPanel(panel, true);
-        panel.DOFade(1f, 0.2f).From(0f);
+        if (GameManager.Instance.SpendCoins(addMovesCost))
+        {
+            GameManager.Instance.AddMoves(addMovesAmount);
+            GameManager.Instance.SetState(GameState.Playing);
+        }
+        else
+        {
+            // Shake nút để báo không đủ xu
+            addMovesBtn?.transform.DOShakePosition(0.3f, 8f, 20);
+        }
     }
 
-    private void SetPanel(CanvasGroup panel, bool active)
+    // ─── HUD updates ─────────────────────────────────────────────────────────
+
+    public void UpdateMoves(int moves)
     {
-        if (panel == null) return;
-        panel.gameObject.SetActive(active);
-        panel.alpha = active ? 1f : 0f;
-        panel.interactable = active;
-        panel.blocksRaycasts = active;
+        if (movesLabel == null) return;
+        movesLabel.text = moves.ToString();
+
+        // Đỏ khi còn ít moves
+        movesLabel.color = moves <= 5 ? Color.red : Color.white;
+        if (moves <= 5)
+            movesLabel.transform.DOPunchScale(Vector3.one * 0.2f, 0.15f, 5, 0.3f);
     }
 
-    // ─── HUD updates ──────────────────────────────────────────────────────
+    public void UpdateCoins(int coins)
+    {
+        if (coinsLabel != null)
+            coinsLabel.text = coins.ToString();
+    }
 
     public void UpdateBlockCounter(int remaining, int total)
     {
-        if (blockCounterLabel)
-            blockCounterLabel.text = $"{remaining} / {total}";
-
-        if (progressBar)
-        {
-            float progress = total > 0 ? 1f - (float)remaining / total : 1f;
-            progressBar.DOValue(progress, 0.3f).SetEase(Ease.OutBack);
-        }
+        if (blockCounterLabel != null)
+            blockCounterLabel.text = $"{remaining}/{total}";
     }
 
-    private void UpdateLevelLabel()
+    public void SetLevelLabel(int level)
     {
-        int lvl = GameManager.Instance.CurrentLevel + 1;
-        if (levelLabel)      levelLabel.text     = $"Level {lvl}";
-        if (winLevelLabel)   winLevelLabel.text  = $"Level {lvl} Complete!";
-        if (loseLevelLabel)  loseLevelLabel.text = $"Level {lvl} Failed";
+        if (levelLabel != null)
+            levelLabel.text = $"Level {level}";
     }
 
-    // ─── Win animation ────────────────────────────────────────────────────
+    // ─── Helpers ─────────────────────────────────────────────────────────────
 
-    private void PlayWinAnimation()
+    private void HideAll()
     {
-        if (starsContainer == null) return;
-
-        foreach (Transform child in starsContainer)
-            Destroy(child.gameObject);
-
-        for (int i = 0; i < 3; i++)
-        {
-            int index = i;
-            DOVirtual.DelayedCall(0.2f + index * 0.25f, () =>
-            {
-                var star = Instantiate(starPrefab, starsContainer);
-                star.transform.localScale = Vector3.zero;
-                star.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack);
-            });
-        }
+        mainMenuPanel?.SetActive(false);
+        gameplayPanel?.SetActive(false);
+        winPanel?.SetActive(false);
+        losePanel?.SetActive(false);
+        pausePanel?.SetActive(false);
     }
 
-    // ─── Button callbacks (wired in Inspector) ────────────────────────────
-
-    public void OnPlayPressed()
+    private void ShowPanel(GameObject panel)
     {
-        AudioManager.Instance?.PlayButton();
-        GameManager.Instance.StartGame();
-    }
-
-    public void OnRestartPressed()
-    {
-        AudioManager.Instance?.PlayButton();
-        GameManager.Instance.RestartLevel();
-    }
-
-    public void OnNextLevelPressed()
-    {
-        AudioManager.Instance?.PlayButton();
-        GameManager.Instance.NextLevel();
-    }
-
-    public void OnMenuPressed()
-    {
-        AudioManager.Instance?.PlayButton();
-        GameManager.Instance.GoToMainMenu();
-    }
-
-    public void OnPausePressed()
-    {
-        AudioManager.Instance?.PlayButton();
-        GameManager.Instance.ChangeState(GameState.Paused);
-    }
-
-    public void OnResumePressed()
-    {
-        AudioManager.Instance?.PlayButton();
-        GameManager.Instance.ChangeState(GameState.Playing);
+        panel?.SetActive(true);
     }
 }

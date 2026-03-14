@@ -39,7 +39,8 @@ public class BlockSpawner : MonoBehaviour
 
         // Đặt đúng vị trí world từ grid
         block.transform.position = gridSystem.GridToWorld(data.gridPosition);
-        block.transform.localScale = Vector3.one;
+        float s = (gridSystem.CellSize / 1.6f) * 0.95f; // 5% gap
+        block.transform.localScale = new Vector3(s, s, 1f);
 
         block.Init(data, gridSystem);
         gridSystem.RegisterBlock(block);
