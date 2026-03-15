@@ -4658,6 +4658,7 @@ MonoBehaviour:
   levelDatabase: {fileID: 11400000, guid: 3d3de757e5b4f0d45aa223883cba430e, type: 2}
   gridSystem: {fileID: 2025323475}
   gearPrefab: {fileID: 7906493218029627155, guid: 85f78d8cdbb49b748ac0dee8fa7a0630, type: 3}
+  rotatingGearPrefab: {fileID: 7885238827022514012, guid: 1b4f009a29e7c2f43bab023428e69d75, type: 3}
   levelGenerator: {fileID: 11400000, guid: f6e0e2bec8bf4074a868c9690c9387eb, type: 2}
   baseMoves: 20
   movesPerBlock: 2

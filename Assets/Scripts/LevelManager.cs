@@ -14,6 +14,7 @@ public class LevelManager : MonoBehaviour
 
     [Header("Gear Prefab")]
     [SerializeField] private GearBlock gearPrefab;
+    [SerializeField] private RotatingGear rotatingGearPrefab; // NEW
 
     [Header("Procedural Generation")]
     [SerializeField] private LevelGenerator levelGenerator;
@@ -24,6 +25,7 @@ public class LevelManager : MonoBehaviour
 
     private List<Block> _activeBlocks = new List<Block>();
     private List<GearBlock> _activeGears = new List<GearBlock>();
+    private List<RotatingGear> _activeRotatingGears = new List<RotatingGear>(); // NEW
     private LevelData _currentLevelData;
     private int _currentLevelIndex;
     private bool _isResuming = false;
@@ -88,6 +90,7 @@ public class LevelManager : MonoBehaviour
         GameManager.Instance?.InitMoves(moves);
 
         SpawnGears(_currentLevelData);
+        SpawnRotatingGears(_currentLevelData); // NEW
         StartCoroutine(SpawnBlocksSequential(_currentLevelData));
     }
 
@@ -101,6 +104,19 @@ public class LevelManager : MonoBehaviour
             gear.Init(gearPos, gridSystem);
             gridSystem.RegisterGear(gear);
             _activeGears.Add(gear);
+        }
+    }
+
+    private void SpawnRotatingGears(LevelData data)
+    {
+        if (rotatingGearPrefab == null || data.rotatingGearPositions == null) return;
+        foreach (var gearPos in data.rotatingGearPositions)
+        {
+            Vector3 worldPos = gridSystem.GridToWorld(gearPos);
+            RotatingGear gear = Instantiate(rotatingGearPrefab, worldPos, Quaternion.identity);
+            gear.Init(gearPos, gridSystem);
+            gridSystem.RegisterRotatingGear(gear);
+            _activeRotatingGears.Add(gear);
         }
     }
 
@@ -187,6 +203,10 @@ public class LevelManager : MonoBehaviour
         foreach (var gear in _activeGears)
             if (gear != null) { gridSystem?.UnregisterGear(gear); Destroy(gear.gameObject); }
         _activeGears.Clear();
+
+        foreach (var rotatingGear in _activeRotatingGears)
+            if (rotatingGear != null) { gridSystem?.UnregisterRotatingGear(rotatingGear); Destroy(rotatingGear.gameObject); }
+        _activeRotatingGears.Clear();
 
         // Clear grid hoàn toàn để không còn block ma
         gridSystem?.ForceClean();

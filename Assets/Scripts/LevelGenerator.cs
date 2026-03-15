@@ -68,7 +68,86 @@ public class LevelGenerator : ScriptableObject
         Color levelColor = levelColors[difficultyIndex % levelColors.Length];
 
         bool[,] occupied = new bool[cfg.width, cfg.height];
+
+        // ─── RESERVE ROTATING GEAR POSITIONS FIRST ───────────────────────────
+        // Đặt rotating gear trước để blocks không spawn trùng vị trí
+        List<Vector2Int> reservedRotatingGearPositions = new List<Vector2Int>();
+        List<Vector2Int> mandatoryBlockPositions = new List<Vector2Int>(); // NEW: Blocks bắt buộc xung quanh gear
+
+        if (difficultyIndex >= 14) // Level 15+
+        {
+            int rotatingGearCount = 1;
+
+            for (int rg = 0; rg < rotatingGearCount * 20 && reservedRotatingGearPositions.Count < rotatingGearCount; rg++)
+            {
+                int rgx = Random.Range(1, cfg.width - 1);
+                int rgy = Random.Range(1, cfg.height - 1);
+
+                if (!occupied[rgx, rgy])
+                {
+                    // Check 4 vị trí xung quanh có trong grid không
+                    Vector2Int[] neighbors = {
+                        new Vector2Int(rgx, rgy + 1),     // Top
+                        new Vector2Int(rgx + 1, rgy),     // Right
+                        new Vector2Int(rgx, rgy - 1),     // Bottom
+                        new Vector2Int(rgx - 1, rgy)      // Left
+                    };
+
+                    bool canPlace = true;
+                    List<Vector2Int> validNeighbors = new List<Vector2Int>();
+
+                    foreach (var neighbor in neighbors)
+                    {
+                        if (neighbor.x < 0 || neighbor.x >= cfg.width ||
+                            neighbor.y < 0 || neighbor.y >= cfg.height)
+                        {
+                            canPlace = false;
+                            break;
+                        }
+                        if (!occupied[neighbor.x, neighbor.y])
+                            validNeighbors.Add(neighbor);
+                    }
+
+                    // Cần ít nhất 1 vị trí trống xung quanh để đặt block
+                    if (canPlace && validNeighbors.Count >= 1)
+                    {
+                        occupied[rgx, rgy] = true; // MARK VỊ TRÍ GEAR
+                        reservedRotatingGearPositions.Add(new Vector2Int(rgx, rgy));
+
+                        // Spawn 1-2 blocks xung quanh gear (MANDATORY)
+                        int blocksToPlace = Mathf.Min(2, validNeighbors.Count);
+                        for (int i = 0; i < blocksToPlace; i++)
+                        {
+                            int idx = Random.Range(0, validNeighbors.Count);
+                            Vector2Int blockPos = validNeighbors[idx];
+                            occupied[blockPos.x, blockPos.y] = true;
+                            mandatoryBlockPositions.Add(blockPos);
+                            validNeighbors.RemoveAt(idx);
+                        }
+
+                        Debug.Log($"[LevelGenerator] Reserved rotating gear at ({rgx}, {rgy}) with {blocksToPlace} mandatory blocks");
+                    }
+                }
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         int placed = 0;
+
+        // ─── PLACE MANDATORY BLOCKS FIRST ───────────────────────────────────
+        foreach (var blockPos in mandatoryBlockPositions)
+        {
+            data.blocks.Add(new BlockData
+            {
+                gridPosition = blockPos,
+                size = Vector2Int.one,
+                direction = (SlideDirection)Random.Range(0, 4),
+                color = levelColor,
+                blockType = BlockType.Normal,
+            });
+            placed++;
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         for (int i = 0; i < cfg.blockCount * 20 && placed < cfg.blockCount; i++)
         {
@@ -95,6 +174,7 @@ public class LevelGenerator : ScriptableObject
             });
             placed++;
         }
+
         // Gear xuất hiện từ level 3+, số lượng random tăng dần theo độ khó
         data.gearPositions = new List<Vector2Int>();
         if (difficultyIndex >= 2)
@@ -125,6 +205,10 @@ public class LevelGenerator : ScriptableObject
             }
             Debug.Log($"[LevelGenerator] Level {difficultyIndex}: {data.gearPositions.Count}/{maxGear} gears");
         }
+
+        // ─── ASSIGN ROTATING GEAR POSITIONS (đã reserve trước) ──────────────
+        data.rotatingGearPositions = reservedRotatingGearPositions;
+        // ─────────────────────────────────────────────────────────────────────
 
         return data;
     }

@@ -52,7 +52,8 @@ public class LevelData : ScriptableObject
     public List<BlockData> blocks = new List<BlockData>();
 
     [Header("Gear Obstacles")]
-    public List<Vector2Int> gearPositions = new List<Vector2Int>();
+    public List<Vector2Int> gearPositions = new List<Vector2Int>();                 // GearBlock (crushes blocks)
+    public List<Vector2Int> rotatingGearPositions = new List<Vector2Int>();         // RotatingGear (rotates blocks clockwise)
 
     [Header("Difficulty")]
     [Range(1, 10)] public int difficulty = 1;

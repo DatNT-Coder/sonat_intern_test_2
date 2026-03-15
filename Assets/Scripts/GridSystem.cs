@@ -23,6 +23,7 @@ public class GridSystem : MonoBehaviour
         height = newHeight;
         _grid.Clear();
         _gears.Clear();
+        _rotatingGears.Clear(); // NEW
         Debug.Log($"[GridSystem] Resized to {width}x{height}");
     }
 
@@ -31,6 +32,7 @@ public class GridSystem : MonoBehaviour
     {
         _grid.Clear();
         _gears.Clear();
+        _rotatingGears.Clear(); // NEW
     }
 
     public void Init(LevelData levelData)
@@ -208,6 +210,62 @@ public class GridSystem : MonoBehaviour
         }
         return closest;
     }
+
+    // ─── Rotating Gear tracking (NEW) ────────────────────────────────────
+
+    private Dictionary<Vector2Int, RotatingGear> _rotatingGears = new Dictionary<Vector2Int, RotatingGear>();
+
+    public void RegisterRotatingGear(RotatingGear gear)
+    {
+        if (_rotatingGears.ContainsKey(gear.GridPosition))
+        {
+            Debug.LogWarning($"[GridSystem] Gear already registered at {gear.GridPosition}");
+            return;
+        }
+
+        _rotatingGears.Add(gear.GridPosition, gear);
+        Debug.Log($"[GridSystem] Registered rotating gear at {gear.GridPosition}");
+    }
+
+    public void UnregisterRotatingGear(RotatingGear gear)
+    {
+        _rotatingGears.Remove(gear.GridPosition);
+    }
+
+    public RotatingGear GetRotatingGearAt(Vector2Int pos)
+    {
+        _rotatingGears.TryGetValue(pos, out var gear);
+        return gear;
+    }
+
+    /// <summary>
+    /// Check if there's a rotating gear in the slide path (blocks cannot pass through)
+    /// </summary>
+    public bool HasRotatingGearInPath(Block block)
+    {
+        Vector2Int dir = DirectionToGrid(block.Direction);
+        var cells = GetOccupiedCells(block.GridPosition, block.Size);
+        var frontEdge = GetFrontEdge(cells, dir);
+
+        foreach (var edge in frontEdge)
+        {
+            Vector2Int check = edge + dir;
+            while (IsInBounds(check))
+            {
+                if (_rotatingGears.ContainsKey(check))
+                    return true; // Bị chặn bởi rotating gear!
+
+                // Nếu có block thì dừng check (block sẽ chặn trước)
+                if (_grid.ContainsKey(check))
+                    break;
+
+                check += dir;
+            }
+        }
+        return false;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
 
     public Block GetBlockAt(Vector2Int cell)
     {

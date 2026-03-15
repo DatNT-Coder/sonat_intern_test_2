@@ -67,8 +67,7 @@ public class Block : MonoBehaviour
 
         if (_hp > 1)
         {
-            _hp--;
-            PlayHitEffect();
+            _hp--; PlayHitEffect();
             AudioManager.Instance?.PlayBlockTap();
             return;
         }
@@ -80,6 +79,17 @@ public class Block : MonoBehaviour
             return;
         }
 
+        // ─── CHECK ROTATING GEAR (OBSTACLE!) ────────────────────────────────
+        // Rotating gears CHẶN blocks, không cho đi qua!
+        if (_grid.HasRotatingGearInPath(this))
+        {
+            Debug.Log($"[Block] {name} BLOCKED by rotating gear!");
+            PlayHitEffect();
+            AudioManager.Instance?.PlayBlockTap();
+            return; // Không được slide!
+        }
+        // ────────────────────────────────────────────────────────────────────
+
         Block blocker = _grid.GetBlocker(this);
         Debug.Log($"[Block] {name} gridPos={_data.gridPosition} dir={_data.direction} blocker={(blocker != null ? blocker.name + "@" + blocker.GridPosition : "none")}");
         if (blocker != null)
@@ -89,6 +99,10 @@ public class Block : MonoBehaviour
     }
 
     // ─── Trượt đến cạnh block chặn rồi dừng ─────────────────────────────
+    public void SetGridPosition(Vector2Int newPos)
+    {
+        _data.gridPosition = newPos;
+    }
 
     private IEnumerator SlideToBlocker(Block blocker)
     {
