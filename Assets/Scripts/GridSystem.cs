@@ -117,7 +117,15 @@ public class GridSystem : MonoBehaviour
     public Vector3 GridToWorld(Vector2Int gridPos)
     {
         Vector3 origin = gridOrigin != null ? gridOrigin.position : Vector3.zero;
-        return origin + new Vector3(gridPos.x * cellSize, gridPos.y * cellSize, 0f);
+
+        float offsetX = (width - 1) * cellSize * 0.5f;
+        float offsetY = (height - 1) * cellSize * 0.5f;
+
+        return origin + new Vector3(
+            gridPos.x * cellSize - offsetX,
+            gridPos.y * cellSize - offsetY,
+            0f
+        );
     }
 
     public Vector2Int WorldToGrid(Vector3 worldPos)
