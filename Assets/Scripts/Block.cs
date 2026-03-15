@@ -122,13 +122,16 @@ public class Block : MonoBehaviour
                               .WaitForCompletion();
 
         // Cập nhật gridPosition mới
-        _data.gridPosition = _grid.WorldToGrid(stopPos);
+        Vector2Int dir = Vector2Int.RoundToInt(DirectionToVector(_data.direction));
+        _data.gridPosition = blocker.GridPosition - dir;
+
         _grid.RegisterBlock(this);
         _isSliding = false;
 
         // Hiệu ứng va chạm: block này rung nhẹ
-        Vector2 dir = Block.DirectionToVector(_data.direction);
-        transform.DOPunchPosition((Vector3)(dir * 0.08f), 0.2f, 6, 0.3f);
+
+        Vector3 punch = new Vector3(dir.x, dir.y, 0) * 0.08f;
+        transform.DOPunchPosition(punch, 0.2f, 6, 0.3f);
 
         // Blocker nháy đỏ
         blocker.PlayBlockedFlash();
