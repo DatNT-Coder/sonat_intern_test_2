@@ -26,6 +26,7 @@ public class LevelManager : MonoBehaviour
     private List<GearBlock> _activeGears = new List<GearBlock>();
     private LevelData _currentLevelData;
     private int _currentLevelIndex;
+    private bool _isResuming = false;
     private int _totalBlocks;
 
     public int RemainingBlocks => _activeBlocks.Count;
@@ -54,13 +55,21 @@ public class LevelManager : MonoBehaviour
 
     private void HandleGameStateChanged(GameState state)
     {
-        if (state == GameState.Playing)
+        if (state == GameState.Playing && !_isResuming)
             LoadLevel(GameManager.Instance.CurrentLevel);
+        _isResuming = false;
+    }
+
+    public void ResumeWithoutReload()
+    {
+        _isResuming = true;
+        GameManager.Instance.SetState(GameState.Playing);
     }
 
     public void LoadLevel(int levelIndex)
     {
         ClearLevel();
+        AudioManager.Instance?.StopAllSFX();
 
         if (levelDatabase != null && levelIndex < levelDatabase.Levels.Count)
             _currentLevelData = levelDatabase.Levels[levelIndex];
@@ -114,18 +123,26 @@ public class LevelManager : MonoBehaviour
         Debug.Log($"[LevelManager] Spawned {_totalBlocks} blocks");
         UIManager.Instance?.UpdateBlockCounter(_activeBlocks.Count, _totalBlocks);
         UIManager.Instance?.SetLevelLabel(GameManager.Instance.CurrentLevel + 1);
+
+        // Nếu level không có block nào → win luôn
+        if (_totalBlocks == 0)
+        {
+            Debug.LogWarning("[LevelManager] No blocks in level, auto-win!");
+            StartCoroutine(DelayedWin());
+        }
     }
 
     private void HandleBlockRemoved(Block block)
     {
         _activeBlocks.Remove(block);
         UIManager.Instance?.UpdateBlockCounter(_activeBlocks.Count, _totalBlocks);
-
-        // Tốn 1 move mỗi khi block bị xóa thành công
-        GameManager.Instance?.UseMove();
+        Debug.Log($"[LevelManager] Block removed, remaining={_activeBlocks.Count}");
 
         if (_activeBlocks.Count <= 0)
+        {
+            Debug.Log("[LevelManager] All blocks cleared! Triggering win...");
             StartCoroutine(DelayedWin());
+        }
     }
 
     private IEnumerator DelayedWin()

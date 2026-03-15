@@ -110,9 +110,9 @@ public class GameManager : MonoBehaviour
 
     public void RetryLevel()
     {
-        // Reload đúng level đang chơi — KHÔNG tăng CurrentLevel
+        Time.timeScale = 1f;
+        SetState(GameState.Playing);
         LevelManager.Instance?.LoadLevel(CurrentLevel);
-        InitMoves(GameManager.Instance.TotalMoves);
     }
 
     public void NextLevel()

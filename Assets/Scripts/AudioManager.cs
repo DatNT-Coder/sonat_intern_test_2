@@ -1,10 +1,7 @@
-using UnityEngine;
+﻿using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 
-/// <summary>
-/// Centralized audio management. Singleton.
-/// Supports SFX pooling and background music.
-/// </summary>
 public class AudioManager : MonoBehaviour
 {
     public static AudioManager Instance { get; private set; }
@@ -26,6 +23,7 @@ public class AudioManager : MonoBehaviour
     [SerializeField] public AudioClip buttonClickClip;
 
     private Queue<AudioSource> _sfxPool = new Queue<AudioSource>();
+    private float _sfxVolume = 1f;
 
     void Awake()
     {
@@ -37,11 +35,17 @@ public class AudioManager : MonoBehaviour
 
     void Start()
     {
-        PlayMusic(bgMusic);
+        if (bgMusic != null && musicSource != null)
+        {
+            musicSource.clip = bgMusic;
+            musicSource.loop = true;
+            musicSource.Play();
+        }
     }
 
     private void InitPool()
     {
+        if (sfxPrefab == null) return;
         for (int i = 0; i < poolSize; i++)
         {
             var source = Instantiate(sfxPrefab, transform);
@@ -52,10 +56,12 @@ public class AudioManager : MonoBehaviour
 
     public void PlaySFX(AudioClip clip, float pitch = 1f)
     {
-        if (clip == null) return;
+        if (clip == null || _sfxVolume <= 0f) return;
         var source = GetPooledSource();
+        if (source == null) return;
         source.pitch = pitch;
         source.clip = clip;
+        source.volume = _sfxVolume;
         source.gameObject.SetActive(true);
         source.Play();
         StartCoroutine(ReturnToPool(source, clip.length + 0.1f));
@@ -68,27 +74,33 @@ public class AudioManager : MonoBehaviour
     public void PlayLose() => PlaySFX(loseClip);
     public void PlayButton() => PlaySFX(buttonClickClip);
 
+    public void SetMusicVolume(float vol)
+    {
+        if (musicSource != null) musicSource.volume = vol;
+    }
+
+    public void SetSFXVolume(float vol)
+    {
+        _sfxVolume = vol;
+    }
+
+    public void StopAllSFX()
+    {
+        foreach (var source in GetComponentsInChildren<AudioSource>())
+            if (source != musicSource) source.Stop();
+    }
+
     private AudioSource GetPooledSource()
     {
         if (_sfxPool.Count > 0) return _sfxPool.Dequeue();
-        return Instantiate(sfxPrefab, transform);
+        if (sfxPrefab != null) return Instantiate(sfxPrefab, transform);
+        return null;
     }
 
-    private System.Collections.IEnumerator ReturnToPool(AudioSource source, float delay)
+    private IEnumerator ReturnToPool(AudioSource source, float delay)
     {
         yield return new WaitForSeconds(delay);
         source.gameObject.SetActive(false);
         _sfxPool.Enqueue(source);
     }
-
-    public void PlayMusic(AudioClip clip)
-    {
-        if (musicSource == null || clip == null) return;
-        musicSource.clip = clip;
-        musicSource.loop = true;
-        musicSource.Play();
-    }
-
-    public void SetMusicVolume(float vol) => musicSource.volume = vol;
-    public void SetSFXVolume(float vol) { /* apply to all active sources */ }
 }

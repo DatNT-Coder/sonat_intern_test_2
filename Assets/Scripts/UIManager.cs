@@ -28,18 +28,12 @@ public class UIManager : MonoBehaviour
 
     [Header("Item Cost")]
     [SerializeField] private int boomCost = 20;
-    [SerializeField] private int moreMoveCost = 30;
-    [SerializeField] private int moreMoveAmt = 10;
 
     [Header("Win Panel")]
-    [SerializeField] private TextMeshProUGUI winCoinsEarned;
-    [SerializeField] private TextMeshProUGUI winLevelLabel;
-    [SerializeField] private Button nextLevelBtn;
+    [SerializeField] private WinPanelController winPanelController;
 
     [Header("Lose Panel")]
-    [SerializeField] private TextMeshProUGUI loseTitleLabel;
-    [SerializeField] private Button loseRetryBtn;
-    [SerializeField] private Button loseMoreMovesBtn;
+    [SerializeField] private LosePanelController losePanelController;
 
     void Awake()
     {
@@ -59,11 +53,8 @@ public class UIManager : MonoBehaviour
         moreMovesButton?.onClick.AddListener(OnMoreMoves);
 
         // Win panel
-        nextLevelBtn?.onClick.AddListener(() => GameManager.Instance.NextLevel());
 
         // Lose panel
-        loseRetryBtn?.onClick.AddListener(OnRetry);
-        loseMoreMovesBtn?.onClick.AddListener(OnLoseMoreMoves);
 
         HideAll();
         // Dùng Invoke để đợi GameManager load save xong
@@ -119,19 +110,17 @@ public class UIManager : MonoBehaviour
 
     private IEnumerator ShowWinDelayed()
     {
-        yield return new WaitForSeconds(0.6f);
-        winPanel?.SetActive(true);
-
+        yield return new WaitForSeconds(0.5f);
         int earned = 10 + GameManager.Instance.MovesLeft;
-        if (winLevelLabel != null)
-            winLevelLabel.text = $"Level {GameManager.Instance.CurrentLevel} Complete!";
-        if (winCoinsEarned != null)
+        int level = GameManager.Instance.CurrentLevel;
+        Debug.Log($"[UIManager] ShowWin: controller={winPanelController != null}, earned={earned}");
+        if (winPanelController != null)
+            winPanelController.Show(earned, GameManager.Instance.Coins, level);
+        else
         {
-            winCoinsEarned.text = $"+{earned} 🪙";
-            winCoinsEarned.transform.localScale = Vector3.zero;
-            winCoinsEarned.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack);
+            // Fallback: hiện winPanel trực tiếp
+            winPanel?.SetActive(true);
         }
-        winPanel?.transform.DOScale(1f, 0.35f).SetEase(Ease.OutBack).From(Vector3.zero);
     }
 
     // ─── Lose ─────────────────────────────────────────────────────────────────
@@ -139,14 +128,7 @@ public class UIManager : MonoBehaviour
     private IEnumerator ShowLoseDelayed()
     {
         yield return new WaitForSeconds(0.4f);
-        losePanel?.SetActive(true);
-        if (loseTitleLabel != null) loseTitleLabel.text = "Out of moves!";
-
-        // Disable lose-more-moves nếu không đủ xu
-        if (loseMoreMovesBtn != null)
-            loseMoreMovesBtn.interactable = GameManager.Instance.Coins >= moreMoveCost;
-
-        losePanel?.transform.DOScale(1f, 0.35f).SetEase(Ease.OutBack).From(Vector3.zero);
+        losePanelController?.Show();
     }
 
     // ─── Bottom bar actions ──────────────────────────────────────────────────
@@ -157,10 +139,16 @@ public class UIManager : MonoBehaviour
         GameManager.Instance.RetryLevel();
     }
 
+    [Header("Settings Panel")]
+    [SerializeField] private SettingsPanelController settingsPanelController;
+
     private void OnSettings()
     {
-        bool isOpen = settingsPanel != null && settingsPanel.activeSelf;
-        settingsPanel?.SetActive(!isOpen);
+        if (settingsPanelController == null) return;
+        if (settingsPanelController.gameObject.activeSelf)
+            settingsPanelController.Hide();
+        else
+            settingsPanelController.Show();
     }
 
     private void OnBoom()
@@ -177,21 +165,13 @@ public class UIManager : MonoBehaviour
 
     private void OnMoreMoves()
     {
-        if (!GameManager.Instance.SpendCoins(moreMoveCost))
+        if (!GameManager.Instance.SpendCoins(30))
         {
             moreMovesButton?.transform.DOShakePosition(0.3f, 8f, 20);
             return;
         }
-        GameManager.Instance.AddMoves(moreMoveAmt);
+        GameManager.Instance.AddMoves(10);
         UpdateCoins(GameManager.Instance.Coins);
-    }
-
-    private void OnLoseMoreMoves()
-    {
-        if (!GameManager.Instance.SpendCoins(moreMoveCost)) return;
-        GameManager.Instance.AddMoves(moreMoveAmt);
-        losePanel?.SetActive(false);
-        GameManager.Instance.SetState(GameState.Playing);
     }
 
     // ─── HUD updates ─────────────────────────────────────────────────────────

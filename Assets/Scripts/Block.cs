@@ -128,6 +128,8 @@ public class Block : MonoBehaviour
     {
         _isSliding = true;
         _grid.UnregisterBlock(this);
+        var col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = false;
 
         // Dừng ngay tại rìa gear (cách tâm gear 1 nửa cellSize)
         float cellSize = _grid.CellSize;
@@ -231,7 +233,11 @@ public class Block : MonoBehaviour
     // ─── Helper ──────────────────────────────────────────────────────────
 
     /// <summary>Cho phép GearBlock báo event remove mà không cần invoke trực tiếp</summary>
-    public void NotifyRemoved() => OnBlockRemoved?.Invoke(this);
+    public void NotifyRemoved()
+    {
+        Debug.Log($"[Block] NotifyRemoved called, listeners={OnBlockRemoved?.GetInvocationList()?.Length ?? 0}");
+        OnBlockRemoved?.Invoke(this);
+    }
 
     public static Vector2 DirectionToVector(SlideDirection dir)
     {
